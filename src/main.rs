@@ -6,7 +6,6 @@ use syntect::easy::HighlightLines;
 use syntect::highlighting::{Color, Theme, ThemeSet, ThemeSettings};
 use syntect::parsing::SyntaxSet;
 
-
 /**
  * bed - a basic editor like ed but with a modern interface
  * Author: Luc Videau
@@ -90,7 +89,14 @@ fn parse_command(input: &str, current_line: usize, max_line: usize) -> BedComman
     } else if change_re.is_match(input) {
         BedCommand::Change
     } else if move_re.is_match(input) {
-        let line = move_re.captures(input).unwrap().get(1).unwrap().as_str().parse().unwrap();
+        let line = move_re
+            .captures(input)
+            .unwrap()
+            .get(1)
+            .unwrap()
+            .as_str()
+            .parse()
+            .unwrap();
         BedCommand::Move { line }
     } else {
         eprintln!("Unknown command: {}", input);
@@ -119,7 +125,7 @@ fn main() {
     // Create the initial state of the editor
     let mut state = BedState {
         content: Rope::from(file),
-        current_line: 0,
+        current_line: 1,
     };
     state.current_line = state.content.line_len();
 
@@ -143,14 +149,16 @@ fn main() {
         // create a hardcoded theme
         let theme_settings = ThemeSettings {
             foreground: Some(hex2color!("#a8dadc")), // Soft teal for text
-            background: Some(Color::BLACK), // Deep black background
-            caret: Some(hex2color!("#457B9D")), // Muted blue for caret
+            background: Some(Color::BLACK),          // Deep black background
+            caret: Some(hex2color!("#457B9D")),      // Muted blue for caret
             line_highlight: Some(hex2color!("#1D3557")), // Subtle navy blue for active line
             misspelling: Some(hex2color!("#E63946")), // Warm red for misspellings
             minimap_border: Some(hex2color!("#2A2A2A")), // Subtle dark gray for minimap border
-            accent: Some(hex2color!("#F4A261")), // Soft orange accent
+            accent: Some(hex2color!("#F4A261")),     // Soft orange accent
             popup_css: Some("background-color: #2E2E2E; color: #A8DADC;".to_string()), // Softer contrast for popups
-            phantom_css: Some("background-color: #3E3E3E; color: #E63946; border: 1px solid #F4A261;".to_string()),
+            phantom_css: Some(
+                "background-color: #3E3E3E; color: #E63946; border: 1px solid #F4A261;".to_string(),
+            ),
             bracket_contents_foreground: Some(hex2color!("#F4A261")), // Soft orange for bracket contents
             bracket_contents_options: None,
             brackets_foreground: Some(hex2color!("#A8DADC")), // Matches foreground
@@ -161,19 +169,18 @@ fn main() {
             highlight: Some(hex2color!("#2A2A2A")), // Subtle dark gray for highlights
             find_highlight: Some(hex2color!("#F4A261")), // Soft orange for find results
             find_highlight_foreground: Some(hex2color!("#1D3557")), // Navy text on orange
-            gutter: Some(hex2color!("#1D3557")), // Matches line highlight
+            gutter: Some(hex2color!("#1D3557")),    // Matches line highlight
             gutter_foreground: Some(hex2color!("#A8DADC")), // Matches foreground
             selection: Some(hex2color!("#3E3E3E")), // Muted gray for selections
             selection_foreground: Some(hex2color!("#F1FAEE")), // Light cream text for selected content
-            selection_border: Some(hex2color!("#F4A261")), // Soft orange border for selections
-            inactive_selection: Some(hex2color!("#2E2E2E")), // Dark gray for inactive selections
+            selection_border: Some(hex2color!("#F4A261")),     // Soft orange border for selections
+            inactive_selection: Some(hex2color!("#2E2E2E")),   // Dark gray for inactive selections
             inactive_selection_foreground: Some(hex2color!("#A8DADC")), // Soft teal for inactive selection text
-            guide: Some(hex2color!("#3E3E3E")), // Subtle gray guides
+            guide: Some(hex2color!("#3E3E3E")),                         // Subtle gray guides
             active_guide: Some(hex2color!("#457B9D")), // Muted blue for active guide
-            stack_guide: Some(hex2color!("#4E4E4E")), // Slightly brighter gray for stack guides
-            shadow: Some(hex2color!("#000000")), // Pure black for shadows
+            stack_guide: Some(hex2color!("#4E4E4E")),  // Slightly brighter gray for stack guides
+            shadow: Some(hex2color!("#000000")),       // Pure black for shadows
         };
-
 
         let theme = Theme {
             name: Some(String::from("bed - theme")),
@@ -191,9 +198,24 @@ fn main() {
             BedCommand::None => continue,
             BedCommand::Quit => break,
             BedCommand::Change => {
+                // Get lines until regex ^.$ is matched
+                let end_re = Regex::new(r"^\.\n$").unwrap();
                 let mut new_content = String::new();
-                std::io::stdin().read_line(&mut new_content).unwrap();
-                state.content = Rope::from(new_content);
+                loop {
+                    let mut line = String::new();
+                    std::io::stdin().read_line(&mut line).unwrap();
+                    if end_re.is_match(&line) {
+                        break;
+                    }
+                    new_content.push_str(&line);
+                }
+                // remove the current line from the content
+                let byte_start = state.content.byte_of_line(state.current_line - 1);
+                let byte_width = state.content.line(state.current_line - 1).byte_len();
+                let byte_end = byte_start + byte_width;
+                state.content.delete(byte_start..byte_end);
+                // insert the new content at the current line
+                state.content.insert(byte_start, &new_content.trim_end());
             }
             BedCommand::Print { range } => {
                 for line in (range.start - 1)..range.end {
