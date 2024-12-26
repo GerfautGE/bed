@@ -1,3 +1,3 @@
 # Bed
 
-A basic editor.
+A (not so) Basic EDitor

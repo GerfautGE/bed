@@ -34,6 +34,7 @@ enum BedCommand {
     NPrint { range: Range },
     Move { line: usize },
     Change,
+    Write,
     None,
 }
 
@@ -50,6 +51,7 @@ fn parse_command(input: &str, current_line: usize, max_line: usize) -> BedComman
     let print_re = Regex::new(r"^(\d+)?,?(\s)?(\d+)?(\s)?[pn]$").unwrap();
     let move_re = Regex::new(r"^(\d+)$").unwrap();
     let change_re = Regex::new(r"^c\s*$").unwrap();
+    let write_re = Regex::new(r"^w\s*$").unwrap();
 
     /* Match the input with the regular expressions */
     if quit_re.is_match(input) {
@@ -98,6 +100,8 @@ fn parse_command(input: &str, current_line: usize, max_line: usize) -> BedComman
             .parse()
             .unwrap();
         BedCommand::Move { line }
+    } else if write_re.is_match(input) {
+        BedCommand::Write
     } else {
         eprintln!("Unknown command: {}", input);
         BedCommand::None
@@ -149,7 +153,7 @@ fn main() {
         // create a hardcoded theme
         let theme_settings = ThemeSettings {
             foreground: Some(hex2color!("#a8dadc")), // Soft teal for text
-            background: Some(Color::BLACK),          // Deep black background
+            background: Some(Color::BLACK),          // Dark gray for background
             caret: Some(hex2color!("#457B9D")),      // Muted blue for caret
             line_highlight: Some(hex2color!("#1D3557")), // Subtle navy blue for active line
             misspelling: Some(hex2color!("#E63946")), // Warm red for misspellings
@@ -192,11 +196,14 @@ fn main() {
         let syntax = ps.find_syntax_by_extension(ext).unwrap();
         let mut h = HighlightLines::new(syntax, &theme);
 
-        // parse the command
+        // execute the command
         let command = parse_command(&input, state.current_line, state.content.line_len());
         match command {
             BedCommand::None => continue,
             BedCommand::Quit => break,
+            BedCommand::Write => {
+                std::fs::write(&args[1], state.content.to_string()).unwrap();
+            }
             BedCommand::Change => {
                 // Get lines until regex ^.$ is matched
                 let end_re = Regex::new(r"^\.\n$").unwrap();
