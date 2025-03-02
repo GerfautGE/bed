@@ -2,25 +2,11 @@ use crop::Rope;
 use regex::Regex;
 use std::string::ToString;
 use std::{env, io::Write};
-use syntect::easy::HighlightLines;
-use syntect::highlighting::{Color, Theme, ThemeSet, ThemeSettings};
-use syntect::parsing::SyntaxSet;
 
 /**
  * bed - a basic editor like ed but with a modern interface
  * Author: Luc Videau
  */
-
-macro_rules! hex2color {
-    ($hex:expr) => {
-        Color {
-            r: u8::from_str_radix(&$hex[1..3], 16).unwrap(),
-            g: u8::from_str_radix(&$hex[3..5], 16).unwrap(),
-            b: u8::from_str_radix(&$hex[5..7], 16).unwrap(),
-            a: 255,
-        }
-    };
-}
 
 #[derive(Debug)]
 struct Range {
@@ -133,9 +119,6 @@ fn main() {
     };
     state.current_line = state.content.line_len();
 
-    // Syntax highlighting
-    let ps = SyntaxSet::load_defaults_newlines();
-
     // REPL loop
     loop {
         // print the prompt
@@ -145,56 +128,6 @@ fn main() {
         // wait for the user to enter a command
         let mut input = String::new();
         std::io::stdin().read_line(&mut input).unwrap();
-
-        // get the file extension from the file name
-        let ext = args[1].split('.').last().unwrap_or_else(|| "txt");
-        let ts = ThemeSet::load_defaults();
-
-        // create a hardcoded theme
-        let theme_settings = ThemeSettings {
-            foreground: Some(hex2color!("#a8dadc")), // Soft teal for text
-            background: Some(Color::BLACK),          // Dark gray for background
-            caret: Some(hex2color!("#457B9D")),      // Muted blue for caret
-            line_highlight: Some(hex2color!("#1D3557")), // Subtle navy blue for active line
-            misspelling: Some(hex2color!("#E63946")), // Warm red for misspellings
-            minimap_border: Some(hex2color!("#2A2A2A")), // Subtle dark gray for minimap border
-            accent: Some(hex2color!("#F4A261")),     // Soft orange accent
-            popup_css: Some("background-color: #2E2E2E; color: #A8DADC;".to_string()), // Softer contrast for popups
-            phantom_css: Some(
-                "background-color: #3E3E3E; color: #E63946; border: 1px solid #F4A261;".to_string(),
-            ),
-            bracket_contents_foreground: Some(hex2color!("#F4A261")), // Soft orange for bracket contents
-            bracket_contents_options: None,
-            brackets_foreground: Some(hex2color!("#A8DADC")), // Matches foreground
-            brackets_background: Some(hex2color!("#1D3557")), // Matches line highlight
-            brackets_options: None,
-            tags_foreground: Some(hex2color!("#F4A261")), // Soft orange for tags
-            tags_options: None,
-            highlight: Some(hex2color!("#2A2A2A")), // Subtle dark gray for highlights
-            find_highlight: Some(hex2color!("#F4A261")), // Soft orange for find results
-            find_highlight_foreground: Some(hex2color!("#1D3557")), // Navy text on orange
-            gutter: Some(hex2color!("#1D3557")),    // Matches line highlight
-            gutter_foreground: Some(hex2color!("#A8DADC")), // Matches foreground
-            selection: Some(hex2color!("#3E3E3E")), // Muted gray for selections
-            selection_foreground: Some(hex2color!("#F1FAEE")), // Light cream text for selected content
-            selection_border: Some(hex2color!("#F4A261")),     // Soft orange border for selections
-            inactive_selection: Some(hex2color!("#2E2E2E")),   // Dark gray for inactive selections
-            inactive_selection_foreground: Some(hex2color!("#A8DADC")), // Soft teal for inactive selection text
-            guide: Some(hex2color!("#3E3E3E")),                         // Subtle gray guides
-            active_guide: Some(hex2color!("#457B9D")), // Muted blue for active guide
-            stack_guide: Some(hex2color!("#4E4E4E")),  // Slightly brighter gray for stack guides
-            shadow: Some(hex2color!("#000000")),       // Pure black for shadows
-        };
-
-        let theme = Theme {
-            name: Some(String::from("bed - theme")),
-            author: Some(String::from("Luc Videau")),
-            settings: theme_settings,
-            scopes: ts.themes["base16-ocean.dark"].scopes.clone(),
-        };
-
-        let syntax = ps.find_syntax_by_extension(ext).unwrap();
-        let mut h = HighlightLines::new(syntax, &theme);
 
         // execute the command
         let command = parse_command(&input, state.current_line, state.content.line_len());
@@ -227,9 +160,7 @@ fn main() {
             BedCommand::Print { range } => {
                 for line in (range.start - 1)..range.end {
                     let string = state.content.line(line).to_string();
-                    let ranges = h.highlight_line(&string, &ps).unwrap();
-                    let escaped = syntect::util::as_24_bit_terminal_escaped(&ranges[..], true);
-                    print!("{}\n", escaped);
+                    print!("{}\n", string);
                 }
                 print!("\x1b[0m");
             }
@@ -239,11 +170,9 @@ fn main() {
 
                 for line in (range.start - 1)..range.end {
                     let string = state.content.line(line).to_string();
-                    let ranges = h.highlight_line(&string, &ps).unwrap();
-                    let escaped = syntect::util::as_24_bit_terminal_escaped(&ranges[..], true);
                     // reset the color to the default color
                     print!("{:width$} │ ", line + 1, width = width);
-                    print!("{}\n", escaped);
+                    print!("{}\n", string);
                     print!("\x1b[0m");
                 }
             }

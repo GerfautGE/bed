@@ -6,4 +6,3 @@ edition = "2021"
 [dependencies]
 crop = "0.4.2"
 regex = "1.11.1"
-syntect = "5.2.0"
